@@ -2,6 +2,7 @@ package api
 
 import (
 	"drawl-server/db"
+	"drawl-server/game"
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -24,8 +25,9 @@ type joinGameRequest struct {
 }
 
 type joinGameResponse struct {
-	JoinCode string `json:"joinCode"`
-	GameID   string `json:"gameID"`
+	JoinCode string       `json:"joinCode"`
+	GameID   string       `json:"gameID"`
+	Player   *game.Player `json:"player"`
 }
 
 func handleJoinGamePOST(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +45,8 @@ func handleJoinGamePOST(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	resp := joinGameResponse{GameID: game.ID, JoinCode: game.JoinCode}
+	player := game.NewPlayer()
+	resp := joinGameResponse{GameID: game.ID, JoinCode: game.JoinCode, Player: player}
 	respJson, err := json.Marshal(resp)
 	if err != nil {
 		log.WithError(err).Error("could not marshal JoinGame response")

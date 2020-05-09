@@ -1,6 +1,8 @@
 package game
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"math/rand"
@@ -42,7 +44,8 @@ func NewGame() *Game {
 		for {
 			select {
 			case <-ticker.C:
-				game.Hub.broadcasts <- []byte("heyyyyy")
+				players, _ := json.Marshal(game.Players)
+				game.Hub.broadcasts <- players
 			}
 		}
 	}()
@@ -51,6 +54,20 @@ func NewGame() *Game {
 
 func (g *Game) StartGame() {
 	// Create starting words and distribute them.
+}
+
+func (g *Game) NewPlayer() *Player {
+	name := fmt.Sprintf("Player %v", len(g.Players))
+	playerID, err := uuid.NewRandom()
+	if err != nil {
+		log.WithError(err).Fatal("error creating UUID for NewPlayer")
+	}
+	newPlayer := &Player{
+		ID:   playerID.String(),
+		Name: name,
+	}
+	g.Players = append(g.Players, newPlayer)
+	return newPlayer
 }
 
 // Generate a random string of A-Z chars with len 4

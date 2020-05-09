@@ -19,8 +19,9 @@ func HandleNewGame(w http.ResponseWriter, r *http.Request) {
 }
 
 type newGameResponse struct {
-	JoinCode string `json:"joinCode"`
-	GameID   string `json:"gameID"`
+	JoinCode string       `json:"joinCode"`
+	GameID   string       `json:"gameID"`
+	Player   *game.Player `json:"player"`
 }
 
 func handleNewGameGET(w http.ResponseWriter, r *http.Request) {
@@ -28,10 +29,11 @@ func handleNewGameGET(w http.ResponseWriter, r *http.Request) {
 	game := game.NewGame()
 	// Save to "DB"
 	db.RegisterGame(game)
-	// Generate a game UUID and external connection code
+	player := game.NewPlayer()
 	resp := newGameResponse{
 		JoinCode: game.JoinCode,
 		GameID:   game.ID,
+		Player:   player,
 	}
 	respJson, err := json.Marshal(resp)
 	if err != nil {
