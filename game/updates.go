@@ -10,12 +10,17 @@ import (
 
 type gameUpdate struct {
 	Type string `json:"type"`
-	Data string `json:"data"`
+	Data []byte `json:"data"`
 }
 
 func (g *Game) sendPlayers() {
 	players, _ := json.Marshal(g.Players)
-	g.Hub.broadcasts <- players
+	gameUpdate, _ := json.Marshal(gameUpdate{
+		Type: "players",
+		Data: players,
+	})
+	g.Hub.broadcasts <- gameUpdate
+
 }
 
 // Give each player their appropriate words to draw
@@ -25,7 +30,7 @@ func (g *Game) sendNextRoundToPlayers() {
 		if g.Round == 0 {
 			update := gameUpdate{
 				Type: "newWord",
-				Data: journey.StartingWord,
+				Data: []byte(journey.StartingWord),
 			}
 			messageBytes, err := json.Marshal(update)
 			if err != nil {

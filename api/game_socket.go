@@ -14,19 +14,24 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 	// Get Game ID and Player ID from URL, that should be something like /ws/<gameID>/<playerID>.
 	IDs := strings.Split(r.URL.Path, "/")
 	// Check we got real UUIDs (and handle crazy formats, sure).
-	_, err := uuid.Parse(IDs[2])
+	if len(IDs) != 4 {
+		log.Error("Could not find required fields in WebSocket connection request")
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	_, err := uuid.Parse(IDs[1])
 	if err != nil {
 		log.WithError(err).Error("Game UUID not found in WebSocket connection request")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	_, err = uuid.Parse(IDs[3])
+	_, err = uuid.Parse(IDs[2])
 	if err != nil {
 		log.WithError(err).Error("Player UUID not found in WebSocket connection request")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	gameInstance, err := db.FindGameByID(IDs[2])
+	gameInstance, err := db.FindGameByID(IDs[1])
 	if err != nil {
 		log.WithError(err).Error("game not found in WebSocket connection request")
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -35,7 +40,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 	// Check Player is in this game...
 	var player *game.Player = nil
 	for _, playr := range gameInstance.Players {
-		if playr.ID == IDs[3] {
+		if playr.ID == IDs[2] {
 			player = playr
 			break
 		}
