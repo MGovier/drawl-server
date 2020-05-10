@@ -7,7 +7,7 @@ package game
 import (
 	"bytes"
 	"drawl-server/config"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 
@@ -64,8 +64,8 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				log.Printf("error: %v", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
+				log.WithError(err).Error("WebSocket closed unexpectedly.")
 			}
 			break
 		}
