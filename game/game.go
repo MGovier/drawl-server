@@ -1,7 +1,6 @@
 package game
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -16,6 +15,8 @@ type Game struct {
 	Players  []*Player      `json:"players"`
 	Stage    GameStage      `json:"gameStage"`
 	Journeys []*WordJourney `json:"wordJourneys"`
+	Round    int            `json:"round"`
+	Limit    int            `json:"limit"`
 }
 
 // Start a new game up, and return the UUID and join code.
@@ -38,22 +39,37 @@ func NewGame() *Game {
 	// Init arrays
 	game.Players = make([]*Player, 0)
 	game.Journeys = make([]*WordJourney, 0)
-	// broadcast some stuff for the time being...
-	ticker := time.NewTicker(5 * time.Second)
+	// Start broadcast of player names until game begins
+	game.broadcastPlayers()
+	return &game
+}
+
+func (g *Game) broadcastPlayers() {
+	ticker := time.NewTicker(1 * time.Second)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				players, _ := json.Marshal(game.Players)
-				game.Hub.broadcasts <- players
+				if g.Stage != GAME_STARTING {
+					ticker.Stop()
+					return
+				}
+				g.sendPlayers()
 			}
 		}
 	}()
-	return &game
 }
 
 func (g *Game) StartGame() {
+	// Players can not change at this point. Stops broadcasts.
+	g.Stage = GAME_RUNNING
+	// One final broadcast to make sure we didn't miss any in the last second...
+	g.sendPlayers()
+	// Number of rounds is just number of players
+	g.Limit = len(g.Players)
+	g.Round = 0
 	// Create starting words and distribute them.
+	g.startJourneys()
 }
 
 func (g *Game) NewPlayer() *Player {
@@ -82,4 +98,16 @@ func generateJoinCode() string {
 // Returns an int >= min, < max
 func randomInt(min, max int) int {
 	return min + rand.Intn(max-min)
+}
+
+func (g *Game) startJourneys() {
+	for _, player := range g.Players {
+		word := generateWord()
+		g.Journeys = append(g.Journeys, &WordJourney{
+			StartingWord:   word,
+			StartingPlayer: player,
+			Plays:          make([]*GamePlay, 0),
+		})
+		g.sendNextRoundToPlayers()
+	}
 }

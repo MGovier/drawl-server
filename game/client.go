@@ -40,7 +40,8 @@ var upgrader = websocket.Upgrader{
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	hub *GameHub
+	hub    *GameHub
+	player *Player
 	// The websocket connection.
 	conn *websocket.Conn
 	// Buffered channel of outbound messages.
@@ -120,13 +121,13 @@ func (c *Client) writePump() {
 }
 
 // ServeWs handles websocket requests from the peer.
-func ServeWs(hub *GameHub, w http.ResponseWriter, r *http.Request) {
+func ServeWs(hub *GameHub, player *Player, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{hub: hub, conn: conn, player: player, send: make(chan []byte, 256)}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in

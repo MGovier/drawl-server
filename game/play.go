@@ -2,10 +2,9 @@ package game
 
 // The wild ride the drawings and guesses hopefully go through!
 type WordJourney struct {
-	StartingWord string `json:"startingWord"`
-	StartingPlayer *Player `json:"startingPlayer"`
-	WordUUID string `json:"wordUUID"`
-	Plays []*GamePlay `json:"gamePlays"`
+	StartingWord   string      `json:"startingWord"`
+	StartingPlayer *Player     `json:"startingPlayer"`
+	Plays          []*GamePlay `json:"gamePlays"`
 }
 
 // A game play can be either a guess or a drawing, this is used to track all events in a game and... eventually...
@@ -17,7 +16,7 @@ type GamePlay interface {
 }
 
 type Guess struct {
-	Guess string `json:"guess"`
+	Guess  string  `json:"guess"`
 	Player *Player `json:"player"`
 }
 
@@ -30,8 +29,8 @@ func (g *Guess) GetPlayer() *Player {
 }
 
 type Drawing struct {
-	Drawing string `json:"drawing"`
-	Player *Player `json:"player"`
+	Drawing string  `json:"drawing"`
+	Player  *Player `json:"player"`
 }
 
 func (d *Drawing) GetPlay() string {

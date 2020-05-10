@@ -10,8 +10,11 @@ type GameHub struct {
 	// Inbound messages from the clients.
 	incomingMessages chan []byte
 
-	// Messages to send to all clients
+	// Messages to send to all clients.
 	broadcasts chan []byte
+
+	// Messages to send to specific players.
+	messages chan *GameMessage
 
 	// Register requests from the clients.
 	register chan *Client
@@ -20,10 +23,16 @@ type GameHub struct {
 	unregister chan *Client
 }
 
+type GameMessage struct {
+	Target  *Player
+	Message *[]byte
+}
+
 func newHub() *GameHub {
 	return &GameHub{
 		incomingMessages: make(chan []byte),
 		broadcasts:       make(chan []byte),
+		messages:         make(chan *GameMessage),
 		register:         make(chan *Client),
 		unregister:       make(chan *Client),
 		clients:          make(map[*Client]bool),
@@ -50,6 +59,17 @@ func (h *GameHub) run() {
 				default:
 					close(client.send)
 					delete(h.clients, client)
+				}
+			}
+		case message := <-h.messages:
+			for client := range h.clients {
+				if client.player.ID == message.Target.ID {
+					select {
+					case client.send <- *message.Message:
+					default:
+						close(client.send)
+						delete(h.clients, client)
+					}
 				}
 			}
 		}
