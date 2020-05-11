@@ -48,12 +48,12 @@ type Client struct {
 	send chan []byte
 }
 
-// readPump pumps messages from the websocket connection to the hub.
+// read pumps messages from the websocket connection to the hub.
 //
-// The application runs readPump in a per-connection goroutine. The application
+// The application runs read in a per-connection goroutine. The application
 // ensures that there is at most one reader on a connection by executing all
 // reads from this goroutine.
-func (c *Client) readPump() {
+func (c *Client) read() {
 	defer func() {
 		c.hub.unregister <- c
 		c.conn.Close()
@@ -70,19 +70,19 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.incomingMessages <- IncomingMessage{
+		c.hub.incomingMessages <- &IncomingMessage{
 			Player:  c.player,
 			Message: message,
 		}
 	}
 }
 
-// writePump pumps messages from the hub to the websocket connection.
+// write pumps messages from the hub to the websocket connection.
 //
 // A goroutine running writePump is started for each connection. The
 // application ensures that there is at most one writer to a connection by
 // executing all writes from this goroutine.
-func (c *Client) writePump() {
+func (c *Client) write() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -91,24 +91,23 @@ func (c *Client) writePump() {
 	for {
 		select {
 		case message, ok := <-c.send:
+			log.WithField("message", string(message)).Debug("sending WS message")
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
+				log.Debug("the hub closed a channel")
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
+				log.WithError(err).Error("Could not get WebSocket writer")
 				return
 			}
-			w.Write(message)
-
-			// Add queued chat messages to the current websocket message.
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				w.Write(newline)
-				w.Write(<-c.send)
+			_, err = w.Write(message)
+			if err != nil {
+				log.WithError(err).Error("error writing WebSocket message")
 			}
 
 			if err := w.Close(); err != nil {
@@ -135,6 +134,6 @@ func ServeWs(hub *GameHub, player *Player, w http.ResponseWriter, r *http.Reques
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
-	go client.writePump()
-	go client.readPump()
+	go client.write()
+	go client.read()
 }

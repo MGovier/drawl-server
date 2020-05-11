@@ -29,7 +29,7 @@ func (g *Game) sendNextRoundToPlayers() {
 		// Chose stage in journey according to round.
 		if g.Round == 0 {
 			update := gameUpdate{
-				Type: "newWord",
+				Type: "word",
 				Data: []byte(journey.StartingWord),
 			}
 			messageBytes, err := json.Marshal(update)
@@ -40,7 +40,11 @@ func (g *Game) sendNextRoundToPlayers() {
 				Target:  journey.StartingPlayer,
 				Message: &messageBytes,
 			}
-			g.Hub.messages <- msg
+			select {
+			case g.Hub.messages <- msg:
+			default:
+				log.Error("Could not dispatch message")
+			}
 		}
 	}
 }
