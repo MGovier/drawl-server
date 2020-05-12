@@ -14,6 +14,7 @@ type Game struct {
 	Hub        *GameHub              `json:"-"`
 	JoinCode   string                `json:"joinCode"`
 	Players    []*Player             `json:"players"`
+	PlayerMap  map[string]*Player    `json:"-"`
 	Stage      GameStage             `json:"gameStage"`
 	Journeys   []*WordJourney        `json:"wordJourneys"`
 	Round      int                   `json:"round"`
@@ -40,6 +41,7 @@ func NewGame() *Game {
 	// Set stage as starting
 	game.Stage = GAME_STARTING
 	// Init arrays
+	game.PlayerMap = make(map[string]*Player)
 	game.Players = make([]*Player, 0)
 	game.Journeys = make([]*WordJourney, 0)
 	go game.run()
@@ -92,6 +94,7 @@ func (g *Game) NewPlayer() *Player {
 		Name: name,
 	}
 	g.Players = append(g.Players, newPlayer)
+	g.PlayerMap[newPlayer.ID] = newPlayer
 	return newPlayer
 }
 
@@ -133,6 +136,9 @@ func (g *Game) HandleMessage(message *IncomingMessage) {
 		}
 		g.StartGame()
 	}
+	if msg.Type == "drawing" {
+
+	}
 }
 
 // Generate a random string of A-Z chars with len 4
@@ -150,12 +156,29 @@ func randomInt(min, max int) int {
 }
 
 func (g *Game) startJourneys() {
-	for _, player := range g.Players {
+	for offset, _ := range g.Players {
 		word := generateWord()
+		wordID, _ := uuid.NewRandom()
+		order := g.calculatePlayOrder(offset)
 		g.Journeys = append(g.Journeys, &WordJourney{
-			StartingWord:   word,
-			StartingPlayer: player,
-			Plays:          make([]*GamePlay, 0),
+			StartingWord: word,
+			WordID:       wordID.String(),
+			Order:        order,
+			Plays:        make([]*GamePlay, 0),
 		})
 	}
+	log.Printf(g.Journeys[1].Order[0].Name)
+	log.Printf(g.Journeys[1].Order[1].Name)
+}
+
+func (g *Game) registerDrawing() {
+
+}
+
+func (g *Game) calculatePlayOrder(offset int) []*Player {
+	order := make([]*Player, 0)
+	for i, _ := range g.Players {
+		order = append(order, g.Players[(i+offset)%len(g.Players)])
+	}
+	return order
 }

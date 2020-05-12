@@ -2,9 +2,10 @@ package game
 
 // The wild ride the drawings and guesses hopefully go through!
 type WordJourney struct {
-	StartingWord   string      `json:"startingWord"`
-	StartingPlayer *Player     `json:"startingPlayer"`
-	Plays          []*GamePlay `json:"gamePlays"`
+	StartingWord string      `json:"startingWord"`
+	WordID       string      `json:"wordID"`
+	Order        []*Player   `json:"playOrder"'`
+	Plays        []*GamePlay `json:"gamePlays"`
 }
 
 // A game play can be either a guess or a drawing, this is used to track all events in a game and... eventually...

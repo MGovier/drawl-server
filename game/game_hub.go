@@ -5,7 +5,7 @@ import log "github.com/sirupsen/logrus"
 // GameHub tracks currently connected players and sends events out when necessary.
 type GameHub struct {
 	// Registered clients.
-	clients map[*Client]bool
+	clients map[string]*Client
 
 	// Inbound messages from the clients.
 	incomingMessages chan *IncomingMessage
@@ -45,7 +45,7 @@ func newHub(messageChannel chan *IncomingMessage) *GameHub {
 		messages:         make(chan *GameMessage, 500),
 		register:         make(chan *Client, 10),
 		unregister:       make(chan *Client, 10),
-		clients:          make(map[*Client]bool),
+		clients:          make(map[string]*Client),
 	}
 }
 
@@ -53,40 +53,36 @@ func (h *GameHub) run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client] = true
+			h.clients[client.player.ID] = client
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+			if _, ok := h.clients[client.player.ID]; ok {
+				delete(h.clients, client.player.ID)
 				close(client.send)
 			}
 		case message := <-h.broadcasts:
-			for client := range h.clients {
+			for _, client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
 					close(client.send)
-					delete(h.clients, client)
+					delete(h.clients, client.player.ID)
 				}
 			}
 		case message := <-h.messages:
-			found := false
-		PlayerLoop:
-			for client := range h.clients {
-				if client.player.ID == message.Target.ID {
-					select {
-					case client.send <- *message.Message:
-						found = true
-						break PlayerLoop
-					default:
-						log.Printf("Could not send a message to a player")
-						close(client.send)
-						delete(h.clients, client)
-					}
-				}
-			}
+			client, found := h.clients[message.Target.ID]
 			if !found {
 				log.Error("could not find player to send message")
+				return
 			}
+			select {
+			case client.send <- *message.Message:
+			default:
+				log.Printf("Could not send a message to a player")
+				// TODO: Put the message back on the queue? Wait for reconnection?
+				close(client.send)
+				delete(h.clients, client.player.ID)
+			}
+
 		}
 	}
 }

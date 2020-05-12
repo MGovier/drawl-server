@@ -37,7 +37,7 @@ func (g *Game) sendNextRoundToPlayers() {
 				log.WithError(err).Error("problem marshalling game update to JSON")
 			}
 			msg := &GameMessage{
-				Target:  journey.StartingPlayer,
+				Target:  journey.Order[0],
 				Message: &messageBytes,
 			}
 			select {
