@@ -20,6 +20,8 @@ type Game struct {
 	Round      int                   `json:"round"`
 	Limit      int                   `json:"limit"`
 	GameEvents chan *IncomingMessage `json:"-"`
+	// Send events when game events occur to check if the round is complete!
+	GameProgressChecker chan struct{} `json:"-"`
 }
 
 // Start a new game up, and return the UUID and join code.
@@ -44,6 +46,7 @@ func NewGame() *Game {
 	game.PlayerMap = make(map[string]*Player)
 	game.Players = make([]*Player, 0)
 	game.Journeys = make([]*WordJourney, 0)
+	game.GameProgressChecker = make(chan struct{})
 	go game.run()
 	// Start broadcast of player names until game begins
 	game.broadcastPlayers()
@@ -102,9 +105,25 @@ func (g *Game) run() {
 	for {
 		select {
 		case incomingMessage := <-g.GameEvents:
-			g.HandleMessage(incomingMessage)
+			go g.HandleMessage(incomingMessage)
+		case <-g.GameProgressChecker:
+			g.checkAndAdvanceRound()
 		}
 	}
+}
+
+func (g *Game) checkAndAdvanceRound() {
+	waitingFor := make([]*Player, 0)
+	for _, journey := range g.Journeys {
+		if len(journey.Plays)-1 <= g.Round {
+			waitingFor = append(waitingFor, journey.Order[g.Round])
+		}
+	}
+	if len(waitingFor) == 0 {
+		g.Round++
+		g.sendNextRoundToPlayers()
+	}
+	log.Debugf("Waiting for: %v", waitingFor)
 }
 
 func (g *Game) HandleMessage(message *IncomingMessage) {
@@ -137,7 +156,42 @@ func (g *Game) HandleMessage(message *IncomingMessage) {
 		g.StartGame()
 	}
 	if msg.Type == "drawing" {
-
+		// Find what journey this belongs to based on the round and player order.
+		// TODO: Make better!
+		for _, journey := range g.Journeys {
+			if journey.Order[g.Round].ID == message.Player.ID {
+				// Right journey!
+				drawData, ok := msg.Contents.(string)
+				if !ok {
+					log.Error("could not cast drawing data to string")
+					return
+				}
+				journey.Plays = append(journey.Plays, &Drawing{
+					Drawing: drawData,
+					Player:  message.Player,
+				})
+				g.GameProgressChecker <- struct{}{}
+			}
+		}
+	}
+	if msg.Type == "guess" {
+		// Find what journey this belongs to based on the round and player order.
+		// TODO: Make better!
+		for _, journey := range g.Journeys {
+			if journey.Order[g.Round].ID == message.Player.ID {
+				// Right journey!
+				guess, ok := msg.Contents.(string)
+				if !ok {
+					log.Error("could not cast guess data to string")
+					return
+				}
+				journey.Plays = append(journey.Plays, &Word{
+					Word:   guess,
+					Player: message.Player,
+				})
+				g.GameProgressChecker <- struct{}{}
+			}
+		}
 	}
 }
 
@@ -160,15 +214,19 @@ func (g *Game) startJourneys() {
 		word := generateWord()
 		wordID, _ := uuid.NewRandom()
 		order := g.calculatePlayOrder(offset)
-		g.Journeys = append(g.Journeys, &WordJourney{
+		startingPlay := &Word{
+			Word:   word,
+			Player: nil,
+		}
+		newJourney := &WordJourney{
 			StartingWord: word,
 			WordID:       wordID.String(),
 			Order:        order,
-			Plays:        make([]*GamePlay, 0),
-		})
+			Plays:        make([]GamePlay, 0),
+		}
+		newJourney.Plays = append(newJourney.Plays, startingPlay)
+		g.Journeys = append(g.Journeys, newJourney)
 	}
-	log.Printf(g.Journeys[1].Order[0].Name)
-	log.Printf(g.Journeys[1].Order[1].Name)
 }
 
 func (g *Game) registerDrawing() {

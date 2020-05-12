@@ -25,26 +25,36 @@ func (g *Game) sendPlayers() {
 
 // Give each player their appropriate words to draw
 func (g *Game) sendNextRoundToPlayers() {
+	if g.Round == g.Limit {
+		// Game Over!
+		// TODO: Create end of game summaries and point system...
+	}
 	for _, journey := range g.Journeys {
 		// Chose stage in journey according to round.
-		if g.Round == 0 {
-			update := gameUpdate{
+		var update gameUpdate
+		if g.Round%2 == 0 {
+			update = gameUpdate{
 				Type: "word",
-				Data: []byte(journey.StartingWord),
+				Data: []byte(journey.Plays[g.Round].GetPlay()),
 			}
-			messageBytes, err := json.Marshal(update)
-			if err != nil {
-				log.WithError(err).Error("problem marshalling game update to JSON")
+		} else {
+			update = gameUpdate{
+				Type: "drawing",
+				Data: []byte(journey.Plays[g.Round].GetPlay()),
 			}
-			msg := &GameMessage{
-				Target:  journey.Order[0],
-				Message: &messageBytes,
-			}
-			select {
-			case g.Hub.messages <- msg:
-			default:
-				log.Error("Could not dispatch message")
-			}
+		}
+		messageBytes, err := json.Marshal(update)
+		if err != nil {
+			log.WithError(err).Error("problem marshalling game update to JSON")
+		}
+		msg := &GameMessage{
+			Target:  journey.Order[g.Round],
+			Message: &messageBytes,
+		}
+		select {
+		case g.Hub.messages <- msg:
+		default:
+			log.Error("Could not dispatch message")
 		}
 	}
 }
