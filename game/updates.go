@@ -28,6 +28,21 @@ func (g *Game) sendNextRoundToPlayers() {
 	if g.Round == g.Limit {
 		// Game Over!
 		// TODO: Create end of game summaries and point system...
+		update := gameUpdate{
+			Type: "review",
+			Data: nil,
+		}
+		messageBytes, err := json.Marshal(update)
+		if err != nil {
+			log.WithError(err).Error("problem marshalling game update to JSON")
+			return
+		}
+		select {
+		case g.Hub.broadcasts <- messageBytes:
+		default:
+			log.Error("Could not dispatch message")
+		}
+		return
 	}
 	for _, journey := range g.Journeys {
 		// Chose stage in journey according to round.
@@ -46,6 +61,7 @@ func (g *Game) sendNextRoundToPlayers() {
 		messageBytes, err := json.Marshal(update)
 		if err != nil {
 			log.WithError(err).Error("problem marshalling game update to JSON")
+			return
 		}
 		msg := &GameMessage{
 			Target:  journey.Order[g.Round],

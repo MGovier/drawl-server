@@ -212,17 +212,14 @@ func randomInt(min, max int) int {
 func (g *Game) startJourneys() {
 	for offset, _ := range g.Players {
 		word := generateWord()
-		wordID, _ := uuid.NewRandom()
 		order := g.calculatePlayOrder(offset)
 		startingPlay := &Word{
 			Word:   word,
 			Player: nil,
 		}
 		newJourney := &WordJourney{
-			StartingWord: word,
-			WordID:       wordID.String(),
-			Order:        order,
-			Plays:        make([]GamePlay, 0),
+			Order: order,
+			Plays: make([]GamePlay, 0),
 		}
 		newJourney.Plays = append(newJourney.Plays, startingPlay)
 		g.Journeys = append(g.Journeys, newJourney)

@@ -22,7 +22,8 @@ const (
 	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
 	// Maximum message size allowed from peer.
-	maxMessageSize = 2000 * 1024
+	// TODO: Optimise drawing size, these things get biiiiig!
+	maxMessageSize = 250 * 1024
 )
 
 var (
@@ -91,7 +92,6 @@ func (c *Client) write() {
 	for {
 		select {
 		case message, ok := <-c.send:
-			log.WithField("message", string(message)).Debug("sending WS message")
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
@@ -122,7 +122,7 @@ func (c *Client) write() {
 	}
 }
 
-// ServeWs handles websocket requests from the peer.
+// ServeWs handles websocket requests from the player.
 func ServeWs(hub *GameHub, player *Player, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -132,8 +132,6 @@ func ServeWs(hub *GameHub, player *Player, w http.ResponseWriter, r *http.Reques
 	client := &Client{hub: hub, conn: conn, player: player, send: make(chan []byte, 256)}
 	client.hub.register <- client
 
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
 	go client.write()
 	go client.read()
 }
