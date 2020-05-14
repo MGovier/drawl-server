@@ -6,10 +6,10 @@ import (
 	"net/http"
 )
 
-func HandleGetGameResults(w http.ResponseWriter, r *http.Request) {
+func HandleGetGameReview(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		addXOriginHeader(w, r, handleGetGameResultsGET)
+		addXOriginHeader(w, r, handleGetGameReviewGET)
 	case http.MethodOptions:
 		returnXOriginHeader(w, r)
 	default:
@@ -18,7 +18,7 @@ func HandleGetGameResults(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleGetGameResultsGET(w http.ResponseWriter, r *http.Request) {
+func handleGetGameReviewGET(w http.ResponseWriter, r *http.Request) {
 	gameID := r.URL.Query().Get("game_id")
 	if gameID == "" {
 		http.Error(w, "missing game_id query parameter", http.StatusBadRequest)
@@ -30,7 +30,7 @@ func handleGetGameResultsGET(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Serialize the whole game, oh boy
-	jsnData, err := json.Marshal(game.Players)
+	jsnData, err := json.Marshal(game)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

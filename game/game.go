@@ -10,16 +10,17 @@ import (
 )
 
 type Game struct {
-	ID         string                `json:"gameID"`
-	Hub        *GameHub              `json:"-"`
-	JoinCode   string                `json:"joinCode"`
-	Players    []*Player             `json:"players"`
-	PlayerMap  map[string]*Player    `json:"-"`
-	Stage      GameStage             `json:"gameStage"`
-	Journeys   []*WordJourney        `json:"wordJourneys"`
-	Round      int                   `json:"round"`
-	Limit      int                   `json:"limit"`
-	GameEvents chan *IncomingMessage `json:"-"`
+	ID              string                `json:"gameID"`
+	Hub             *GameHub              `json:"-"`
+	JoinCode        string                `json:"joinCode"`
+	Players         []*Player             `json:"players"`
+	PlayerMap       map[string]*Player    `json:"-"`
+	PlayersFinished []*Player             `json:"-"`
+	Stage           GameStage             `json:"gameStage"`
+	Journeys        []*WordJourney        `json:"wordJourneys"`
+	Round           int                   `json:"round"`
+	Limit           int                   `json:"limit"`
+	GameEvents      chan *IncomingMessage `json:"-"`
 	// Send events when game events occur to check if the round is complete!
 	GameProgressChecker chan struct{} `json:"-"`
 }
@@ -70,7 +71,7 @@ func (g *Game) broadcastPlayers() {
 }
 
 func (g *Game) StartGame() {
-	if g.Stage != GAME_STARTING {
+	if g.Stage == GAME_RUNNING {
 		log.Debug("Attempted to start an already running game")
 		return
 	}
@@ -78,6 +79,8 @@ func (g *Game) StartGame() {
 	g.Stage = GAME_RUNNING
 	// One final broadcast to make sure we didn't miss any in the last second...
 	g.sendPlayers()
+	// Reset finished players
+	g.PlayersFinished = make([]*Player, 0)
 	// Number of rounds is just number of players
 	g.Limit = len(g.Players)
 	g.Round = 0
@@ -113,6 +116,14 @@ func (g *Game) run() {
 }
 
 func (g *Game) checkAndAdvanceRound() {
+	// The review process has been finished (that is handled by incrementing the round then giving to sendNextRound)
+	if g.Round == g.Limit {
+		if len(g.PlayersFinished) == len(g.Players) {
+			g.sendResults()
+			g.Stage = GAME_ENDED
+		}
+		return
+	}
 	waitingFor := make([]*Player, 0)
 	for _, journey := range g.Journeys {
 		if len(journey.Plays)-1 <= g.Round {
@@ -193,6 +204,29 @@ func (g *Game) HandleMessage(message *IncomingMessage) {
 			}
 		}
 	}
+	if msg.Type == "award" {
+		// TODO: Stop people awarding the same person multiple times per game
+		target, ok := msg.Contents.(string)
+		if !ok {
+			log.WithError(err).Error("Could not cast award message contents to string")
+			return
+		}
+		if target == message.Player.ID {
+			// Nice tryyyyyy
+			return
+		}
+		g.PlayerMap[target].Points++
+	}
+	if msg.Type == "done" {
+		for _, player := range g.PlayersFinished {
+			if player.ID == message.Player.ID {
+				// Already registered as done
+				return
+			}
+		}
+		g.PlayersFinished = append(g.PlayersFinished, message.Player)
+		g.GameProgressChecker <- struct{}{}
+	}
 }
 
 // Generate a random string of A-Z chars with len 4
@@ -210,6 +244,8 @@ func randomInt(min, max int) int {
 }
 
 func (g *Game) startJourneys() {
+	// Reset things in case it's a new round.
+	g.Journeys = make([]*WordJourney, 0)
 	for offset, _ := range g.Players {
 		word := generateWord()
 		order := g.calculatePlayOrder(offset)

@@ -6,21 +6,18 @@ import log "github.com/sirupsen/logrus"
 type GameHub struct {
 	// Registered clients.
 	clients map[string]*Client
-
 	// Inbound messages from the clients.
 	incomingMessages chan *IncomingMessage
-
 	// Messages to send to all clients.
 	broadcasts chan []byte
-
 	// Messages to send to specific players.
 	messages chan *GameMessage
-
 	// Register requests from the clients.
 	register chan *Client
-
 	// Unregister requests from clients.
 	unregister chan *Client
+	// Clients that have been connected before
+	history []string
 }
 
 type GameMessage struct {
@@ -46,6 +43,7 @@ func newHub(messageChannel chan *IncomingMessage) *GameHub {
 		register:         make(chan *Client, 10),
 		unregister:       make(chan *Client, 10),
 		clients:          make(map[string]*Client),
+		history:          make([]string, 0),
 	}
 }
 
@@ -54,6 +52,18 @@ func (h *GameHub) run() {
 		select {
 		case client := <-h.register:
 			h.clients[client.player.ID] = client
+			var previousClient = false
+			for _, oldClientID := range h.history {
+				if oldClientID == client.player.ID {
+					// They must be reconnecting, wb!
+					// Lets give them their last update again in case they missed it.
+					previousClient = true
+					// TODO: Create reconnection channel and send player ID down it.
+				}
+			}
+			if !previousClient {
+				h.history = append(h.history, client.player.ID)
+			}
 		case client := <-h.unregister:
 			if _, ok := h.clients[client.player.ID]; ok {
 				delete(h.clients, client.player.ID)

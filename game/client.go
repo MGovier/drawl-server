@@ -35,7 +35,10 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		return r.Host == config.AllowWSOrigin
+		if r.Host != config.AllowedWSOrigin {
+			log.Error("WebSocket connection denied due to incorrect host")
+		}
+		return r.Host == config.AllowedWSOrigin
 	},
 }
 

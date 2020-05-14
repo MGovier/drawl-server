@@ -3,8 +3,9 @@ package game
 import "errors"
 
 type Player struct {
-	ID   string `json:"playerID"`
-	Name string `json:"playerName"`
+	ID     string `json:"playerID"`
+	Name   string `json:"playerName"`
+	Points int    `json:"points"`
 }
 
 func (p *Player) SetName(name string) error {

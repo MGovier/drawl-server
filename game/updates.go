@@ -20,14 +20,21 @@ func (g *Game) sendPlayers() {
 		Data: players,
 	})
 	g.Hub.broadcasts <- gameUpdate
+}
 
+func (g *Game) sendResults() {
+	players, _ := json.Marshal(g.Players)
+	gameUpdate, _ := json.Marshal(gameUpdate{
+		Type: "results",
+		Data: players,
+	})
+	g.Hub.broadcasts <- gameUpdate
 }
 
 // Give each player their appropriate words to draw
 func (g *Game) sendNextRoundToPlayers() {
 	if g.Round == g.Limit {
 		// Game Over!
-		// TODO: Create end of game summaries and point system...
 		update := gameUpdate{
 			Type: "review",
 			Data: nil,
