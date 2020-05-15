@@ -31,7 +31,7 @@ type Game struct {
 // Start a new game up, and return the UUID and join code.
 func NewGame() *Game {
 	game := Game{}
-	game.GameEvents = make(chan *IncomingMessage)
+	game.GameEvents = make(chan *IncomingMessage, 32)
 	game.ReconnectionChannel = make(chan *Player, 10)
 	// Generate UUID
 	ID, err := uuid.NewRandom()
@@ -51,7 +51,7 @@ func NewGame() *Game {
 	game.PlayerMap = make(map[string]*Player)
 	game.Players = make([]*Player, 0)
 	game.Journeys = make([]*WordJourney, 0)
-	game.GameProgressChecker = make(chan struct{})
+	game.GameProgressChecker = make(chan struct{}, 10)
 	go game.run()
 	// Start broadcast of player names until game begins
 	game.broadcastPlayers()

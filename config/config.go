@@ -1,4 +1,4 @@
 package config
 
-const AllowedCORSOrigin = "http://localhost:3000"
-const AllowedWSOrigin = "localhost:8080"
+const AllowedCORSOrigin = "https://drawl.app"
+const AllowedWSOrigin = "drawl.app"
