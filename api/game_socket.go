@@ -1,37 +1,35 @@
 package api
 
 import (
-	"drawl-server/db"
 	"drawl-server/game"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"net/http"
-	"strings"
 )
 
 // Enable connecting to the game's WebSocket hub.
 func HandleWS(w http.ResponseWriter, r *http.Request) {
 	// Get Game ID and Player ID from URL, that should be something like /ws/<gameID>/<playerID>.
-	IDs := strings.Split(r.URL.Path, "/")
-	// Check we got real UUIDs (and handle crazy formats, sure).
-	if len(IDs) != 4 {
-		log.Error("Could not find required fields in WebSocket connection request")
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	IDs := r.URL.Query()
+	gameID := IDs.Get("game_id")
+	playerID := IDs.Get("player_id")
+	if playerID == "" || gameID == "" {
+		http.Error(w, "missing player or game ID", http.StatusBadRequest)
 		return
 	}
-	_, err := uuid.Parse(IDs[1])
+	_, err := uuid.Parse(gameID)
 	if err != nil {
-		log.WithError(err).Error("Game UUID not found in WebSocket connection request")
+		log.WithError(err).Error("game UUID not found in WebSocket connection request")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	_, err = uuid.Parse(IDs[2])
+	_, err = uuid.Parse(playerID)
 	if err != nil {
-		log.WithError(err).Error("Player UUID not found in WebSocket connection request")
+		log.WithError(err).Error("player UUID not found in WebSocket connection request")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	gameInstance, err := db.FindGameByID(IDs[1])
+	gameInstance, err := game.FindGameByID(gameID)
 	if err != nil {
 		log.WithError(err).Error("game not found in WebSocket connection request")
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -40,7 +38,7 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 	// Check Player is in this game...
 	var player *game.Player = nil
 	for _, playr := range gameInstance.Players {
-		if playr.ID == IDs[2] {
+		if playr.ID == playerID {
 			player = playr
 			break
 		}
@@ -52,4 +50,13 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 	}
 	// Create a client and attach to the game hub.
 	game.ServeWs(gameInstance.Hub, player, w, r)
+	IP := r.Header.Get("X-Forwarded-For")
+	if IP == "" {
+		IP = r.RemoteAddr
+	}
+	log.WithFields(log.Fields{
+		"IP":       IP,
+		"joinCode": gameInstance.JoinCode,
+		"playerID": player.ID,
+	}).Debug("player connected")
 }

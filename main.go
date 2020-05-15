@@ -20,7 +20,7 @@ func main() {
 	http.HandleFunc("/join", api.HandleJoinGame)
 	http.HandleFunc("/review", api.HandleGetGameReview)
 	http.HandleFunc("/results", api.HandleGetGameResults)
-	http.HandleFunc("/", api.HandleWS)
+	http.HandleFunc("/ws", api.HandleWS)
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)

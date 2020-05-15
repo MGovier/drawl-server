@@ -1,6 +1,9 @@
 package game
 
-import log "github.com/sirupsen/logrus"
+import (
+	log "github.com/sirupsen/logrus"
+	"time"
+)
 
 // GameHub tracks currently connected players and sends events out when necessary.
 type GameHub struct {
@@ -8,6 +11,8 @@ type GameHub struct {
 	clients map[string]*Client
 	// Inbound messages from the clients.
 	incomingMessages chan *IncomingMessage
+	// Reconnecting players
+	reconnections chan *Player
 	// Messages to send to all clients.
 	broadcasts chan []byte
 	// Messages to send to specific players.
@@ -35,11 +40,12 @@ type IncomingMessageContents struct {
 	Contents interface{} `json:"data"`
 }
 
-func newHub(messageChannel chan *IncomingMessage) *GameHub {
+func newHub(messageChannel chan *IncomingMessage, reconnectionChannel chan *Player) *GameHub {
 	return &GameHub{
 		incomingMessages: messageChannel,
-		broadcasts:       make(chan []byte, 500),
-		messages:         make(chan *GameMessage, 500),
+		reconnections:    reconnectionChannel,
+		broadcasts:       make(chan []byte, 32),
+		messages:         make(chan *GameMessage, 64),
 		register:         make(chan *Client, 10),
 		unregister:       make(chan *Client, 10),
 		clients:          make(map[string]*Client),
@@ -48,7 +54,9 @@ func newHub(messageChannel chan *IncomingMessage) *GameHub {
 }
 
 func (h *GameHub) run() {
-	for {
+	timeout := time.After(6 * time.Hour)
+	running := true
+	for running {
 		select {
 		case client := <-h.register:
 			h.clients[client.player.ID] = client
@@ -59,6 +67,7 @@ func (h *GameHub) run() {
 					// Lets give them their last update again in case they missed it.
 					previousClient = true
 					// TODO: Create reconnection channel and send player ID down it.
+					h.reconnections <- client.player
 				}
 			}
 			if !previousClient {
@@ -92,7 +101,11 @@ func (h *GameHub) run() {
 				close(client.send)
 				delete(h.clients, client.player.ID)
 			}
-
+		case <-timeout:
+			for _, client := range h.clients {
+				close(client.send)
+			}
+			running = false
 		}
 	}
 }

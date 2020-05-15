@@ -1,7 +1,6 @@
 package api
 
 import (
-	"drawl-server/db"
 	"drawl-server/game"
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
@@ -40,7 +39,7 @@ func handleJoinGamePOST(w http.ResponseWriter, r *http.Request) {
 		log.WithError(err).Debug("invalid join game body contents")
 		return
 	}
-	game, err := db.FindGameByJoinCode(joinRequest.JoinCode)
+	game, err := game.FindGameByJoinCode(joinRequest.JoinCode)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

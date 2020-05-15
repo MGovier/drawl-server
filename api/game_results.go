@@ -1,7 +1,7 @@
 package api
 
 import (
-	"drawl-server/db"
+	game2 "drawl-server/game"
 	"encoding/json"
 	"net/http"
 )
@@ -24,7 +24,7 @@ func handleGetGameResultsGET(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing game_id query parameter", http.StatusBadRequest)
 		return
 	}
-	game, err := db.FindGameByID(gameID)
+	game, err := game2.FindGameByID(gameID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

@@ -77,12 +77,65 @@ func (g *Game) sendNextRoundToPlayers() {
 		select {
 		case g.Hub.messages <- msg:
 		default:
-			log.Error("Could not dispatch message")
+			log.Error("could not dispatch message")
 		}
 	}
 }
 
-// TODO: Give a disconnected client everything they need to catch up...
-func (g *Game) reconnectPlayer() {
-
+// TODO: Fix duplication here
+func (g *Game) reconnectPlayer(player *Player) {
+	if g.Stage == GAME_ENDED {
+		g.sendResults()
+	}
+	if g.Round == g.Limit && g.Limit != 0 {
+		// Game Over!
+		update := gameUpdate{
+			Type: "review",
+			Data: nil,
+		}
+		messageBytes, err := json.Marshal(update)
+		if err != nil {
+			log.WithError(err).Error("problem marshalling game update to JSON")
+			return
+		}
+		select {
+		case g.Hub.messages <- &GameMessage{
+			Target:  player,
+			Message: &messageBytes,
+		}:
+		default:
+			log.Error("could not dispatch reconnection message")
+		}
+		return
+	}
+	for _, journey := range g.Journeys {
+		if journey.Order[g.Round].ID == player.ID {
+			var update gameUpdate
+			if g.Round%2 == 0 {
+				update = gameUpdate{
+					Type: "word",
+					Data: []byte(journey.Plays[g.Round].GetPlay()),
+				}
+			} else {
+				update = gameUpdate{
+					Type: "drawing",
+					Data: []byte(journey.Plays[g.Round].GetPlay()),
+				}
+			}
+			messageBytes, err := json.Marshal(update)
+			if err != nil {
+				log.WithError(err).Error("problem marshalling game update to JSON")
+				return
+			}
+			msg := &GameMessage{
+				Target:  player,
+				Message: &messageBytes,
+			}
+			select {
+			case g.Hub.messages <- msg:
+			default:
+				log.Error("could not dispatch reconnection message")
+			}
+		}
+	}
 }

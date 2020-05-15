@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"math/rand"
+	"strings"
 	"time"
 )
 
@@ -21,14 +22,17 @@ type Game struct {
 	Round           int                   `json:"round"`
 	Limit           int                   `json:"limit"`
 	GameEvents      chan *IncomingMessage `json:"-"`
-	// Send events when game events occur to check if the round is complete!
+	// Send events when game events occur to check if the round is complete.
 	GameProgressChecker chan struct{} `json:"-"`
+	// Notification from the Hub of players reconnecting, so we can send their most recent update.
+	ReconnectionChannel chan *Player `json:"-"`
 }
 
 // Start a new game up, and return the UUID and join code.
 func NewGame() *Game {
 	game := Game{}
 	game.GameEvents = make(chan *IncomingMessage)
+	game.ReconnectionChannel = make(chan *Player, 10)
 	// Generate UUID
 	ID, err := uuid.NewRandom()
 	if err != nil {
@@ -36,7 +40,7 @@ func NewGame() *Game {
 	}
 	game.ID = ID.String()
 	// Start websocket server
-	hub := newHub(game.GameEvents)
+	hub := newHub(game.GameEvents, game.ReconnectionChannel)
 	go hub.run()
 	game.Hub = hub
 	// Create a game JoinCode
@@ -105,12 +109,23 @@ func (g *Game) NewPlayer() *Player {
 }
 
 func (g *Game) run() {
-	for {
+	timeout := time.After(6 * time.Hour)
+	running := true
+	for running {
 		select {
 		case incomingMessage := <-g.GameEvents:
 			go g.HandleMessage(incomingMessage)
+		case reconnectingPlayer := <-g.ReconnectionChannel:
+			g.reconnectPlayer(reconnectingPlayer)
 		case <-g.GameProgressChecker:
 			g.checkAndAdvanceRound()
+		case <-timeout:
+			close(g.ReconnectionChannel)
+			close(g.GameProgressChecker)
+			close(g.GameEvents)
+			UnregisterGame(g.ID)
+			log.WithField("gameID", g.ID).Debug("game closing")
+			running = false
 		}
 	}
 }
@@ -134,7 +149,6 @@ func (g *Game) checkAndAdvanceRound() {
 		g.Round++
 		g.sendNextRoundToPlayers()
 	}
-	log.Debugf("Waiting for: %v", waitingFor)
 }
 
 func (g *Game) HandleMessage(message *IncomingMessage) {
@@ -152,11 +166,13 @@ func (g *Game) HandleMessage(message *IncomingMessage) {
 			log.WithError(err).Error("Could not cast name message contents to string")
 			return
 		}
+		newName = strings.TrimSpace(newName)
 		err = message.Player.SetName(newName)
 		if err != nil {
 			log.WithError(err).Error("Error setting a player's name")
 			return
 		}
+		log.WithFields(log.Fields{"playerID": message.Player, "newName": newName}).Debug("player changed name")
 	}
 	if msg.Type == "start" {
 		// Check correct player started the game for *essential security*.
@@ -196,6 +212,7 @@ func (g *Game) HandleMessage(message *IncomingMessage) {
 					log.Error("could not cast guess data to string")
 					return
 				}
+				guess = strings.TrimSpace(guess)
 				journey.Plays = append(journey.Plays, &Word{
 					Word:   guess,
 					Player: message.Player,
@@ -230,6 +247,7 @@ func (g *Game) HandleMessage(message *IncomingMessage) {
 }
 
 // Generate a random string of A-Z chars with len 4
+// TODO: Regenerate if JoinCode is already in use.
 func generateJoinCode() string {
 	bytes := make([]byte, 4)
 	for i := 0; i < 4; i++ {
@@ -246,8 +264,8 @@ func randomInt(min, max int) int {
 func (g *Game) startJourneys() {
 	// Reset things in case it's a new round.
 	g.Journeys = make([]*WordJourney, 0)
-	for offset, _ := range g.Players {
-		word := generateWord()
+	for offset, player := range g.Players {
+		word := generateWord(player, g.Players)
 		order := g.calculatePlayOrder(offset)
 		startingPlay := &Word{
 			Word:   word,
@@ -260,10 +278,6 @@ func (g *Game) startJourneys() {
 		newJourney.Plays = append(newJourney.Plays, startingPlay)
 		g.Journeys = append(g.Journeys, newJourney)
 	}
-}
-
-func (g *Game) registerDrawing() {
-
 }
 
 func (g *Game) calculatePlayOrder(offset int) []*Player {

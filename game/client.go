@@ -18,7 +18,7 @@ const (
 	// Time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
 	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
+	pongWait = 30 * time.Second
 	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
 	// Maximum message size allowed from peer.
@@ -32,8 +32,9 @@ var (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:    4096,
+	WriteBufferSize:   4096,
+	EnableCompression: true,
 	CheckOrigin: func(r *http.Request) bool {
 		if r.Host != config.AllowedWSOrigin {
 			log.Error("WebSocket connection denied due to incorrect host")
@@ -74,10 +75,16 @@ func (c *Client) read() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.incomingMessages <- &IncomingMessage{
+		forwardMsg := &IncomingMessage{
 			Player:  c.player,
 			Message: message,
 		}
+		select {
+		case c.hub.incomingMessages <- forwardMsg:
+		default:
+			log.Error("could not forward incoming message")
+		}
+
 	}
 }
 

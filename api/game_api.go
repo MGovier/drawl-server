@@ -1,7 +1,6 @@
 package api
 
 import (
-	"drawl-server/db"
 	"drawl-server/game"
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
@@ -25,14 +24,14 @@ type newGameResponse struct {
 }
 
 func handleNewGameGET(w http.ResponseWriter, r *http.Request) {
-	// Start websocket server for this game session.
-	game := game.NewGame()
+	// Start websocket server for this newGame session.
+	newGame := game.NewGame()
 	// Save to "DB"
-	db.RegisterGame(game)
-	player := game.NewPlayer()
+	game.RegisterGame(newGame)
+	player := newGame.NewPlayer()
 	resp := newGameResponse{
-		JoinCode: game.JoinCode,
-		GameID:   game.ID,
+		JoinCode: newGame.JoinCode,
+		GameID:   newGame.ID,
 		Player:   player,
 	}
 	respJson, err := json.Marshal(resp)
@@ -45,5 +44,5 @@ func handleNewGameGET(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.WithError(err).Error("could not write NewGame response")
 	}
-	log.WithField("joinCode", game.JoinCode).Debug("started new game")
+	log.WithField("joinCode", newGame.JoinCode).Debug("started new newGame")
 }
