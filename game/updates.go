@@ -86,8 +86,13 @@ func (g *Game) sendNextRoundToPlayers() {
 func (g *Game) reconnectPlayer(player *Player) {
 	if g.Stage == GAME_ENDED {
 		g.sendResults()
+		return
 	}
-	if g.Round == g.Limit && g.Limit != 0 {
+	if g.Stage == GAME_STARTING {
+		g.sendPlayers()
+		return
+	}
+	if g.Round == g.Limit {
 		// Game Over!
 		update := gameUpdate{
 			Type: "review",
