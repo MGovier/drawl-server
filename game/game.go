@@ -33,7 +33,6 @@ func NewGame() *Game {
 	game := Game{}
 	game.GameEvents = make(chan *IncomingMessage, 32)
 	game.ReconnectionChannel = make(chan *Player, 10)
-	// Generate UUID
 	ID, err := uuid.NewRandom()
 	if err != nil {
 		log.Fatal("Entropy problems, oh my")
@@ -43,9 +42,7 @@ func NewGame() *Game {
 	hub := newHub(game.GameEvents, game.ReconnectionChannel)
 	go hub.run()
 	game.Hub = hub
-	// Create a game JoinCode
 	game.JoinCode = generateJoinCode()
-	// Set stage as starting
 	game.Stage = GAME_STARTING
 	// Init arrays
 	game.PlayerMap = make(map[string]*Player)
