@@ -54,7 +54,7 @@ func newHub(messageChannel chan *IncomingMessage, reconnectionChannel chan *Play
 }
 
 func (h *GameHub) run() {
-	timeout := time.After(6 * time.Hour)
+	timeout := time.After(3 * time.Hour)
 	running := true
 	for running {
 		select {

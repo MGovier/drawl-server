@@ -1,7 +1,7 @@
 package api
 
 import (
-	game2 "drawl-server/game"
+	"drawl-server/game"
 	"encoding/json"
 	"net/http"
 )
@@ -24,13 +24,13 @@ func handleGetGameReviewGET(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing game_id query parameter", http.StatusBadRequest)
 		return
 	}
-	game, err := game2.FindGameByID(gameID)
+	matchingGame, err := game.FindGameByID(gameID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	// Serialize the whole game, oh boy
-	jsnData, err := json.Marshal(game)
+	jsnData, err := json.Marshal(matchingGame)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

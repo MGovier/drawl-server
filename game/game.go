@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"math/rand"
 	"strings"
 	"time"
 )
@@ -42,7 +41,6 @@ func NewGame() *Game {
 	hub := newHub(game.GameEvents, game.ReconnectionChannel)
 	go hub.run()
 	game.Hub = hub
-	game.JoinCode = generateJoinCode()
 	game.Stage = GAME_STARTING
 	// Init arrays
 	game.PlayerMap = make(map[string]*Player)
@@ -80,6 +78,8 @@ func (g *Game) StartGame() {
 	g.Stage = GAME_RUNNING
 	// One final broadcast to make sure we didn't miss any in the last second...
 	g.sendPlayers()
+	// Remove join code from map
+	RemoveGameJoinCode(g)
 	// Reset finished players
 	g.PlayersFinished = make([]*Player, 0)
 	// Number of rounds is just number of players
@@ -106,7 +106,7 @@ func (g *Game) NewPlayer() *Player {
 }
 
 func (g *Game) run() {
-	timeout := time.After(6 * time.Hour)
+	timeout := time.After(3 * time.Hour)
 	running := true
 	for running {
 		select {
@@ -241,21 +241,6 @@ func (g *Game) HandleMessage(message *IncomingMessage) {
 		g.PlayersFinished = append(g.PlayersFinished, message.Player)
 		g.GameProgressChecker <- struct{}{}
 	}
-}
-
-// Generate a random string of A-Z chars with len 4
-// TODO: Regenerate if JoinCode is already in use.
-func generateJoinCode() string {
-	bytes := make([]byte, 4)
-	for i := 0; i < 4; i++ {
-		bytes[i] = byte(randomInt(65, 90))
-	}
-	return string(bytes)
-}
-
-// Returns an int >= min, < max
-func randomInt(min, max int) int {
-	return min + rand.Intn(max-min)
 }
 
 func (g *Game) startJourneys() {

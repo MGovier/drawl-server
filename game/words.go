@@ -5,7 +5,7 @@ import "fmt"
 // Don't deconflict generated words per game, it could be fun to see different approaches to the same term...
 func generateWord(player *Player, players []*Player) string {
 	// Use a context word 10% of the time
-	if len(players) >= 2 && randomInt(0, 100) < 15 {
+	if len(players) >= 2 && randomInt(0, 101) < 10 {
 		return generateContextWord(player, players)
 	}
 	// Otherwise use a random phrase
@@ -34,9 +34,7 @@ var contextList = []string{
 	"%v's Favourite Animal",
 	"%v's Favourite Food",
 	"Something %v Would Hate",
-	"If %v Were on a TV Show...",
 	"%v's Idea of Hell",
-	"Item in %v's Favourite Colour",
 	"%v in Their Happy Place",
 }
 
@@ -55,7 +53,7 @@ var wordList = []string{
 	"Scaring Yourself Shitless",
 	"1950s Sex Ed Poster",
 	"Wiping the Smile Off Your Face",
-	"Too Much Acid",
+	"The United Kingdom",
 	"Armpit Fetish",
 	"Joyless Sex",
 	"Stealing Someone's Thunder",
@@ -102,7 +100,7 @@ var wordList = []string{
 	"Naked Statue of Yourself",
 	"Mail Order Bride",
 	"Netflix and Chill",
-	"The Fork Museum",
+	"Notre Dame",
 	"Foam Party",
 	"Up Shit Creek Without a Paddle",
 	"Cereal Killer",
@@ -132,12 +130,12 @@ var wordList = []string{
 	"Blaze of Glory",
 	"Wheelbarrow Race",
 	"Sore Loser",
-	"Bronies",
+	"The Pyramids",
 	"Dogs Dressed as Humans",
 	"Camel Toe",
 	"Living in a Skip",
 	"Spooning a Spoon",
-	"Racist Grandma",
+	"Racist Grandparents",
 	"Wet Handshake",
 	"The Ugly Friend",
 	"Fighting Fire With Fire",
@@ -147,4 +145,15 @@ var wordList = []string{
 	"The Australian Flag",
 	"The Welsh Flag",
 	"A Stereotypical Dutch Person",
+	"Country Music",
+	"The Beatles",
+	"Stand-Up Comedian",
+	"Religion",
+	"The 1%",
+	"Ironman",
+	"The Incredible Hulk",
+	"Pineapple Pizza",
+	"A Haunted House",
+	"A Theme Park",
+	"DIY",
 }

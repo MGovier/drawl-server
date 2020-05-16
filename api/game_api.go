@@ -27,7 +27,12 @@ func handleNewGameGET(w http.ResponseWriter, r *http.Request) {
 	// Start websocket server for this newGame session.
 	newGame := game.NewGame()
 	// Save to "DB"
-	game.RegisterGame(newGame)
+	err := game.RegisterGame(newGame)
+	if err != nil {
+		log.WithError(err).Error("could not register game")
+		http.Error(w, "could not create game", http.StatusInternalServerError)
+		return
+	}
 	player := newGame.NewPlayer()
 	resp := newGameResponse{
 		JoinCode: newGame.JoinCode,
