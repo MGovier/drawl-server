@@ -14,7 +14,7 @@ type GameHub struct {
 	// Reconnecting players
 	reconnections chan *Player
 	// Messages to send to all clients.
-	broadcasts chan []byte
+	broadcasts chan *GameMessage
 	// Messages to send to specific players.
 	messages chan *GameMessage
 	// Register requests from the clients.
@@ -44,7 +44,7 @@ func newHub(messageChannel chan *IncomingMessage, reconnectionChannel chan *Play
 	return &GameHub{
 		incomingMessages: messageChannel,
 		reconnections:    reconnectionChannel,
-		broadcasts:       make(chan []byte, 32),
+		broadcasts:       make(chan *GameMessage, 32),
 		messages:         make(chan *GameMessage, 64),
 		register:         make(chan *Client, 10),
 		unregister:       make(chan *Client, 10),
@@ -64,9 +64,9 @@ func (h *GameHub) run() {
 			for _, oldClientID := range h.history {
 				if oldClientID == client.player.ID {
 					// They must be reconnecting, wb!
+					log.WithField("player", client.player).Debug("player reconnected")
 					// Lets give them their last update again in case they missed it.
 					previousClient = true
-					// TODO: Create reconnection channel and send player ID down it.
 					h.reconnections <- client.player
 				}
 			}
@@ -83,21 +83,27 @@ func (h *GameHub) run() {
 				select {
 				case client.send <- message:
 				default:
+					log.Debug("could not send broadcast")
 					close(client.send)
 					delete(h.clients, client.player.ID)
 				}
 			}
 		case message := <-h.messages:
+			if message == nil || message.Target == nil {
+				// I can't send this!
+				continue
+			}
 			client, found := h.clients[message.Target.ID]
 			if !found {
 				log.Error("could not find player to send message")
-				return
+				h.putMessageBack(message)
+				continue
 			}
 			select {
-			case client.send <- *message.Message:
+			case client.send <- message:
 			default:
 				log.Printf("Could not send a message to a player")
-				// TODO: Put the message back on the queue? Wait for reconnection?
+				h.putMessageBack(message)
 				close(client.send)
 				delete(h.clients, client.player.ID)
 			}
@@ -108,4 +114,15 @@ func (h *GameHub) run() {
 			running = false
 		}
 	}
+}
+
+// Put messages back on the send queue after an interval
+func (h *GameHub) putMessageBack(message *GameMessage) {
+	go func() {
+		select {
+		case <-time.After(3 * time.Second):
+			h.messages <- message
+			log.Debug("placed messaged back on the queue")
+		}
+	}()
 }

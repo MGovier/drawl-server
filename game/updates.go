@@ -19,7 +19,10 @@ func (g *Game) sendPlayers() {
 		Type: "players",
 		Data: players,
 	})
-	g.Hub.broadcasts <- gameUpdate
+	g.Hub.broadcasts <- &GameMessage{
+		Target:  nil,
+		Message: &gameUpdate,
+	}
 }
 
 func (g *Game) sendResults() {
@@ -28,7 +31,10 @@ func (g *Game) sendResults() {
 		Type: "results",
 		Data: players,
 	})
-	g.Hub.broadcasts <- gameUpdate
+	g.Hub.broadcasts <- &GameMessage{
+		Target:  nil,
+		Message: &gameUpdate,
+	}
 }
 
 // Give each player their appropriate words to draw
@@ -44,8 +50,12 @@ func (g *Game) sendNextRoundToPlayers() {
 			log.WithError(err).Error("problem marshalling game update to JSON")
 			return
 		}
+		gameMessage := &GameMessage{
+			Target:  nil,
+			Message: &messageBytes,
+		}
 		select {
-		case g.Hub.broadcasts <- messageBytes:
+		case g.Hub.broadcasts <- gameMessage:
 		default:
 			log.Error("Could not dispatch message")
 		}
@@ -138,6 +148,7 @@ func (g *Game) reconnectPlayer(player *Player) {
 			}
 			select {
 			case g.Hub.messages <- msg:
+				log.WithField("msg", msg).Debug("sent reconnection msg")
 			default:
 				log.Error("could not dispatch reconnection message")
 			}

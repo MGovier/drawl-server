@@ -50,7 +50,7 @@ type Client struct {
 	// The websocket connection.
 	conn *websocket.Conn
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send chan *GameMessage
 }
 
 // read pumps messages from the websocket connection to the hub.
@@ -97,6 +97,7 @@ func (c *Client) write() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
+		c.hub.unregister <- c
 		c.conn.Close()
 	}()
 	for {
@@ -104,7 +105,7 @@ func (c *Client) write() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
+				// The channel was closed, and message will be nil.
 				log.Debug("the hub closed a channel")
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
@@ -112,10 +113,10 @@ func (c *Client) write() {
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				log.WithError(err).Error("Could not get WebSocket writer")
+				log.WithError(err).Error("could not get WebSocket writer")
 				return
 			}
-			_, err = w.Write(message)
+			_, err = w.Write(*message.Message)
 			if err != nil {
 				log.WithError(err).Error("error writing WebSocket message")
 			}
@@ -139,7 +140,7 @@ func ServeWs(hub *GameHub, player *Player, w http.ResponseWriter, r *http.Reques
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, player: player, send: make(chan []byte, 256)}
+	client := &Client{hub: hub, conn: conn, player: player, send: make(chan *GameMessage, 256)}
 	client.hub.register <- client
 
 	go client.write()
