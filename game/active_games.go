@@ -15,12 +15,13 @@ func init() {
 
 // Register the game and create a join code for it
 func RegisterGame(game *Game) error {
-	activeGames = append(activeGames, game)
 	joinCode, err := generateJoinCode()
 	if err != nil {
 		return err
 	}
+	activeGames = append(activeGames, game)
 	game.JoinCode = joinCode
+	joinCodes[joinCode] = game
 	return nil
 }
 
@@ -62,10 +63,8 @@ func RemoveGameJoinCode(game *Game) {
 func generateJoinCode() (string, error) {
 	for i := 0; i < 100; i++ {
 		code := randomCode()
-		if _, found := joinCodes[code]; found {
-			if !found {
-				return code, nil
-			}
+		if _, found := joinCodes[code]; !found {
+			return code, nil
 		}
 	}
 	return "", errors.New("could not find free join code")
