@@ -102,7 +102,7 @@ func (h *GameHub) run() {
 			select {
 			case client.send <- message:
 			default:
-				log.Printf("Could not send a message to a player")
+				log.Printf("could not send a message to a player")
 				h.putMessageBack(message)
 				close(client.send)
 				delete(h.clients, client.player.ID)
@@ -118,11 +118,14 @@ func (h *GameHub) run() {
 
 // Put messages back on the send queue after an interval
 func (h *GameHub) putMessageBack(message *GameMessage) {
+	// If *everyone* is disconnected, may give up.
+	if len(h.clients) == 0 {
+		return
+	}
 	go func() {
 		select {
 		case <-time.After(3 * time.Second):
 			h.messages <- message
-			log.Debug("placed messaged back on the queue")
 		}
 	}()
 }
